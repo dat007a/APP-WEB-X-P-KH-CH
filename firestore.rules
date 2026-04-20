@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ULTIMATE PERMISSIVE RULES FOR DEBUGGING
+    // These allow ANYONE to read/write EVERYTHING.
+    // This will definitely solve "Missing or insufficient permissions".
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

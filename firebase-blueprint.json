@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information including roles and assignments.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "cashier", "barber"] },
+        "phone": { "type": "string" },
+        "areaId": { "type": "string" },
+        "chairId": { "type": "string" }
+      },
+      "required": ["uid", "name", "role"]
+    },
+    "Area": {
+      "title": "Barber Area",
+      "description": "A physical area in the barber shop.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Chair": {
+      "title": "Barber Chair",
+      "description": "A specific chair in an area.",
+      "type": "object",
+      "properties": {
+        "number": { "type": "number" },
+        "areaId": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "in-service", "break"] },
+        "waitingCount": { "type": "number" },
+        "currentTicketId": { "type": "string" },
+        "currentBarberId": { "type": "string" },
+        "lastStartTime": { "type": "string", "format": "date-time" }
+      },
+      "required": ["number", "areaId", "status"]
+    },
+    "Ticket": {
+      "title": "Service Ticket",
+      "description": "Records of a single haircut service.",
+      "type": "object",
+      "properties": {
+        "ticketNumber": { "type": "string" },
+        "barberId": { "type": "string" },
+        "areaId": { "type": "string" },
+        "chairId": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "duration": { "type": "number" },
+        "status": { "type": "string", "enum": ["in-progress", "finished"] },
+        "isFraudulent": { "type": "boolean" }
+      },
+      "required": ["ticketNumber", "barberId", "startTime", "status"]
+    },
+    "Setting": {
+      "title": "System Settings",
+      "description": "Configurable thresholds for the shop.",
+      "type": "object",
+      "properties": {
+        "avgServiceTime": { "type": "number", "description": "Minutes until chair turns yellow (default 20)" },
+        "maxServiceTime": { "type": "number", "description": "Minutes until alert (default 40)" },
+        "kpiThreshold": { "type": "number", "description": "KPI percentage (default 90)" },
+        "fraudThreshold": { "type": "number", "description": "Minimum minutes for a valid service (default 20)" }
+      }
+    },
+    "Log": {
+      "title": "Activity Log",
+      "description": "History of actions performed in the system.",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "Users of the system." },
+    "/areas/{areaId}": { "schema": "Area", "description": "Barber shop areas." },
+    "/chairs/{chairId}": { "schema": "Chair", "description": "All chairs across the shop." },
+    "/tickets/{ticketId}": { "schema": "Ticket", "description": "Service records." },
+    "/settings/global": { "schema": "Setting", "description": "Global shop settings." },
+    "/logs/{logId}": { "schema": "Log", "description": "System event logs." }
+  }
+}
