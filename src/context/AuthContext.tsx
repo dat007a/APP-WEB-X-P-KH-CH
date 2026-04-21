@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const profileRef = doc(db, 'users', firebaseUser.uid);
         
         // Use a one-time check first for the admin emails to ensure they always have a profile
-        const adminEmails = ['taypekaeb15885@gmail.com', 'admin@barberflow.com'];
+        const adminEmails = ['taypekaeb15885@gmail.com', 'admin@gmail.com'];
         if (firebaseUser.email && adminEmails.includes(firebaseUser.email)) {
           const snap = await getDoc(profileRef);
           if (!snap.exists()) {

@@ -9,9 +9,16 @@ import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Logs from './pages/Logs';
 import Layout from './components/Layout';
+import { checkAndPerformMaintenance } from './lib/maintenance';
 
 function PrivateRoute({ children, roles }: { children: React.ReactNode, roles?: string[] }) {
   const { user, profile, loading } = useAuth();
+
+  React.useEffect(() => {
+    if (user && profile && (profile.role === 'admin' || profile.role === 'cashier')) {
+      checkAndPerformMaintenance();
+    }
+  }, [user, profile]);
 
   if (loading) return <div className="flex items-center justify-center h-screen bg-neutral-900 text-white">Loading...</div>;
   if (!user) return <Navigate to="/login" />;

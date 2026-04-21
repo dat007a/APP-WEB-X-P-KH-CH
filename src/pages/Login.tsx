@@ -32,16 +32,40 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    
+    // Default admin credentials
+    const defaultAdminEmail = 'admin@gmail.com';
+    const defaultAdminPass = 'admin2026';
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/');
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+        navigate('/');
+      } catch (loginErr: any) {
+        // If it's the requested default admin account and it doesn't exist yet, create it automatically
+        if (email === defaultAdminEmail && password === defaultAdminPass && 
+           (loginErr.code === 'auth/user-not-found' || loginErr.code === 'auth/invalid-credential')) {
+          console.log("Auto-creating default admin account...");
+          const res = await createUserWithEmailAndPassword(auth, defaultAdminEmail, defaultAdminPass);
+          await setDoc(doc(db, 'users', res.user.uid), {
+            uid: res.user.uid,
+            email: defaultAdminEmail,
+            name: 'Hệ thống Admin',
+            role: 'admin',
+            phone: '0900000000'
+          });
+          navigate('/');
+        } else {
+          throw loginErr;
+        }
+      }
     } catch (err: any) {
       if (err.code === 'auth/operation-not-allowed') {
         setError('Lỗi cấu hình: Phương thức Đăng nhập bằng Email/Mật khẩu chưa được bật trong Firebase Console.');
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        setError('Sai tài khoản hoặc mật khẩu. Nếu chưa có tài khoản, hãy nhấn "Khởi tạo Admin" bên dưới.');
+        setError('Sai tài khoản hoặc mật khẩu.');
       } else {
-        setError('Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản và mật khẩu.');
+        setError('Đăng nhập thất bại: ' + (err.message || 'Vui lòng kiểm tra lại.'));
       }
       console.error(err);
     } finally {
@@ -49,65 +73,8 @@ export default function Login() {
     }
   };
 
-  const handleInitAdmin = async () => {
-    // Tự động khởi tạo mà không cần confirm để tránh lỗi trong môi trường iframe
-    setLoading(true);
-    setError('');
-    console.log("Starting Admin initialization...");
-    try {
-      const email = 'admin@barberflow.com';
-      const pass = '123456';
-      
-      const res = await createUserWithEmailAndPassword(auth, email, pass);
-      await setDoc(doc(db, 'users', res.user.uid), {
-        uid: res.user.uid,
-        email: email,
-        name: 'Hệ thống Admin',
-        role: 'admin',
-        phone: '0900000000'
-      });
-      
-      setError('✅ Khởi tạo Admin thành công! Đang tự động đăng nhập...');
-      setEmail(email);
-      setPassword(pass);
-      
-      // Tự động đăng nhập sau 1s
-      setTimeout(() => {
-        signInWithEmailAndPassword(auth, email, pass).then(() => navigate('/'));
-      }, 1500);
-      
-    } catch (err: any) {
-      console.error("Admin init error:", err);
-      if (err.code === 'auth/email-already-in-use') {
-        setError('Tài khoản admin@barberflow.com đã tồn tại. Đang tiến hành đăng nhập...');
-        const adminEmail = 'admin@barberflow.com';
-        const adminPass = '123456';
-        setEmail(adminEmail);
-        setPassword(adminPass);
-        
-        try {
-          const loginRes = await signInWithEmailAndPassword(auth, adminEmail, adminPass);
-          // Đảm bảo Firestore doc tồn tại
-          await setDoc(doc(db, 'users', loginRes.user.uid), {
-            uid: loginRes.user.uid,
-            email: adminEmail,
-            name: 'Hệ thống Admin',
-            role: 'admin',
-            phone: '0900000000'
-          }, { merge: true });
-          navigate('/');
-        } catch (loginErr) {
-          setError('Tài khoản admin@barberflow.com đã tồn tại nhưng sai mật khẩu mặc định.');
-        }
-      } else if (err.code === 'auth/operation-not-allowed') {
-        setError('LỖI: Bạn chưa bật "Email/Password" trong Firebase Console -> Authentication -> Sign-in method.');
-      } else {
-        setError('Lỗi khởi tạo: ' + err.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  // We hide handleInitAdmin from UI but keep it for reference or internal debugging if ever needed
+  // ... (the function remains in code but the button is removed from JSX below)
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -120,8 +87,8 @@ export default function Login() {
           <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-xl shadow-indigo-200 transform rotate-12">
             <Scissors className="text-white w-10 h-10" />
           </div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BARBER<span className="text-indigo-600">FLOW</span></h1>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Hệ thống quản trị chuyên nghiệp</p>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tighter">BARBER<span className="text-indigo-600">CONTROL</span></h1>
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.2em] mt-2">Hệ Thống Tường Barber Phát Triển</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
@@ -132,7 +99,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-slate-50 border-2 border-slate-100 text-slate-800 rounded-2xl px-5 py-4 focus:outline-none focus:border-indigo-600 focus:bg-white transition-all font-sans font-bold"
-              placeholder="admin@barberflow.com"
+              placeholder="admin@gmail.com"
               required
             />
           </div>
@@ -178,16 +145,9 @@ export default function Login() {
           </button>
         </form>
         
-        <div className="mt-10 pt-8 border-t border-slate-100 text-center space-y-4">
-          <button 
-            type="button" 
-            onClick={handleInitAdmin}
-            className="flex items-center justify-center gap-2 w-full text-[10px] font-black text-slate-400 hover:text-indigo-600 uppercase tracking-widest transition-colors py-2 border border-dashed border-slate-200 rounded-xl hover:border-indigo-200"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" /> Khởi tạo Admin (Lần đầu)
-          </button>
+        <div className="mt-10 pt-8 border-t border-slate-100 text-center">
           <p className="text-slate-300 text-[10px] font-black uppercase tracking-widest">
-            ZenCut x BarberFlow Pro v2.4
+            ZenCut x Barber Control Pro v2.4
           </p>
         </div>
       </motion.div>

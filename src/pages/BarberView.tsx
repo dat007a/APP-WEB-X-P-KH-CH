@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { db } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Chair, Area, Ticket, SystemSettings } from '../types';
 import { 
@@ -22,7 +22,8 @@ import {
   Play, 
   AlertCircle,
   Timer,
-  Hash
+  Hash,
+  LogOut
 } from 'lucide-react';
 import { differenceInMinutes, parseISO } from 'date-fns';
 
@@ -157,31 +158,41 @@ export default function BarberView() {
     if (!chair?.currentTicketId) return;
     setLoading(true);
     try {
+      console.log(`⏳ Setting chair ${chair.number} to almost-done`);
       const chairRef = doc(db, 'chairs', profile!.chairId!);
       await updateDoc(chairRef, { status: 'almost-done' });
+      console.log("✅ State updated: almost-done");
     } catch (err) {
-      console.error(err);
+      console.error("AlmostDone error:", err);
+      alert('Lỗi: Không thể chuyển trạng thái. Hãy thử tải lại trang.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleFinish = async () => {
-    if (!chair?.currentTicketId) return;
+    if (!chair) return;
+    if (!chair.currentTicketId && chair.status === 'available') return;
+    
     setLoading(true);
     try {
       const now = new Date().toISOString();
-      const startTime = parseISO(chair!.lastStartTime!);
+      const startTime = chair.lastStartTime ? parseISO(chair.lastStartTime) : new Date();
       const duration = differenceInMinutes(new Date(now), startTime);
 
-      // Find active ticket - must include barberId for security rules to allow list
+      console.log(`🏁 Finishing ticket #${chair.currentTicketId} for Chair ${chair.number}`);
+
+      // Find active ticket
+      // In permissive mode, this should work, but we find by ticketNumber and chairId to be precise
       const q = query(
         collection(db, 'tickets'), 
-        where('ticketNumber', '==', chair!.currentTicketId), 
+        where('ticketNumber', '==', chair.currentTicketId), 
         where('status', '==', 'in-progress'),
-        where('barberId', '==', profile!.uid)
+        where('chairId', '==', profile!.chairId)
       );
+      
       const ticketSnap = await getDocs(q);
+      console.log(`🔍 Found ${ticketSnap.size} matching tickets to close`);
       
       if (!ticketSnap.empty) {
         const ticketDoc = ticketSnap.docs[0];
@@ -191,6 +202,7 @@ export default function BarberView() {
           duration: duration,
           isFraudulent: duration < settings.fraudThreshold
         });
+        console.log("✅ Ticket marked as finished");
       }
 
       // Update chair
@@ -201,6 +213,7 @@ export default function BarberView() {
         currentBarberId: null,
         lastStartTime: null
       });
+      console.log("✅ Chair reset to available");
 
       // Log
       await addDoc(collection(db, 'logs'), {
@@ -208,11 +221,12 @@ export default function BarberView() {
         userId: profile!.uid,
         userName: profile!.name,
         action: 'Hoàn thành cắt',
-        details: `Phiếu #${chair!.currentTicketId} tại Ghế ${chair?.number}. Thời gian: ${duration}p`
+        details: `Phiếu #${chair.currentTicketId} tại Ghế ${chair.number}. Thời gian: ${duration}p`
       });
 
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Finish Error:", err);
+      alert(`❌ Lỗi: ${err.message || 'Không thể hoàn thành phiếu.'}`);
     } finally {
       setLoading(false);
     }
@@ -260,7 +274,8 @@ export default function BarberView() {
          </div>
 
          <div className="relative z-10 text-center">
-            <h1 className="text-4xl font-black text-slate-800 tracking-tighter mb-1">Giao diện Thợ</h1>
+            <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">Barber Control</h1>
+            <p className="text-indigo-600 font-black uppercase text-[10px] tracking-[0.2em] mb-4">Hệ Thống Tường Barber Phát Triển</p>
             <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{area?.name} — Ghế số {chair?.number}</p>
 
             <AnimatePresence mode="wait">
@@ -394,6 +409,16 @@ export default function BarberView() {
             <span className="text-lg font-black text-slate-800 tabular-nums leading-none">{settings.maxServiceTime}m</span>
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Giới Hạn</span>
          </div>
+      </div>
+
+      {/* Logout button at bottom for barbers */}
+      <div className="pt-4">
+        <button
+          onClick={() => auth.signOut()}
+          className="w-full flex items-center justify-center gap-3 p-5 bg-white border border-red-100 rounded-3xl text-red-500 font-black uppercase text-[10px] tracking-[0.2em] shadow-sm hover:bg-red-50 transition-all border-dashed"
+        >
+          <LogOut className="w-4 h-4" /> Đăng xuất tài khoản
+        </button>
       </div>
     </div>
   );
