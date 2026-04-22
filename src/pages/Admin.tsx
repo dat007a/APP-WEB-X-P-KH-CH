@@ -41,6 +41,7 @@ export default function Admin() {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingArea, setEditingArea] = useState<Area | null>(null);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [selectedAreaId, setSelectedAreaId] = useState<string>('');
   
   // Confirmation state
   const [confirmDelete, setConfirmDelete] = useState<{ id: string, type: 'area' | 'chair' | 'user' } | null>(null);
@@ -62,6 +63,12 @@ export default function Admin() {
       unsubUsers();
     };
   }, []);
+
+  const handleUserModalOpen = (user: UserProfile | null) => {
+    setEditingUser(user);
+    setSelectedAreaId(user?.areaId || '');
+    setIsUserModalOpen(true);
+  };
 
   const handleCreateArea = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -336,7 +343,7 @@ export default function Admin() {
         <div className="space-y-6">
           <div className="flex justify-end">
             <button 
-              onClick={() => { setEditingUser(null); setIsUserModalOpen(true); }}
+              onClick={() => { setEditingUser(null); setSelectedAreaId(''); setIsUserModalOpen(true); }}
               className="bg-indigo-600 hover:bg-indigo-700 px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest text-white flex items-center gap-2 transition-all shadow-xl shadow-indigo-100 active:scale-95"
             >
               <Plus className="w-4 h-4" /> Thêm nhân viên mới
@@ -392,7 +399,7 @@ export default function Admin() {
                     </td>
                     <td className="p-6 text-right">
                        <div className="flex justify-end gap-3">
-                        <button onClick={() => { setEditingUser(user); setIsUserModalOpen(true); }} className="p-2 hover:bg-slate-50 rounded-xl text-slate-300 hover:text-indigo-600 transition-colors">
+                        <button onClick={() => { setEditingUser(user); setSelectedAreaId(user.areaId || ''); setIsUserModalOpen(true); }} className="p-2 hover:bg-slate-50 rounded-xl text-slate-300 hover:text-indigo-600 transition-colors">
                           <Edit className="w-4.5 h-4.5" />
                         </button>
                         <button onClick={() => setConfirmDelete({ id: user.uid, type: 'user' })} className="p-2 hover:bg-slate-50 rounded-xl text-slate-300 hover:text-red-500 transition-colors">
@@ -495,10 +502,15 @@ export default function Admin() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gán khu vực</label>
-                  <select name="areaId" defaultValue={editingUser?.areaId} className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-sm font-bold focus:bg-white focus:border-indigo-600 focus:outline-none transition-all appearance-none">
+                  <select 
+                    name="areaId" 
+                    value={selectedAreaId} 
+                    onChange={(e) => setSelectedAreaId(e.target.value)}
+                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-sm font-bold focus:bg-white focus:border-indigo-600 focus:outline-none transition-all appearance-none"
+                  >
                     <option value="">Chưa gán</option>
                     {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
@@ -507,9 +519,9 @@ export default function Admin() {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gán số ghế</label>
                   <select name="chairId" defaultValue={editingUser?.chairId} className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-sm font-bold focus:bg-white focus:border-indigo-600 focus:outline-none transition-all appearance-none">
                     <option value="">Chưa gán</option>
-                    {chairs.map(c => (
+                    {chairs.filter(c => c.areaId === selectedAreaId).map(c => (
                       <option key={c.id} value={c.id}>
-                        Ghế {c.number} ({areas.find(a => a.id === c.areaId)?.name})
+                        Ghế {c.number}
                       </option>
                     ))}
                   </select>

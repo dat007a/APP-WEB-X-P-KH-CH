@@ -359,7 +359,18 @@ function ChairItem({ chair, settings, onUpdateWaiting, onForceStatus, canControl
   key?: React.Key
 }) {
   const [showControls, setShowControls] = useState(false);
-  const now = new Date();
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    let interval: any;
+    if (chair.status === 'in-service' || chair.status === 'almost-done') {
+      interval = setInterval(() => {
+        setNow(new Date());
+      }, 30000); // Update every 30 seconds for better responsiveness
+    }
+    return () => clearInterval(interval);
+  }, [chair.status]);
+
   const startTime = chair.lastStartTime ? parseISO(chair.lastStartTime) : null;
   const elapsed = startTime ? differenceInMinutes(now, startTime) : 0;
   
