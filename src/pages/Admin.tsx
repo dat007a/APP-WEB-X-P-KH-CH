@@ -12,6 +12,7 @@ import {
   query, 
   where,
   getDocs,
+  getDoc,
   writeBatch
 } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
@@ -111,13 +112,53 @@ export default function Admin() {
     }
 
     try {
+      let finalChairId = editingUser?.chairId || (formData.get('chairId') as string) || null;
+
+      if (role === 'barber' && areaId) {
+        if (!finalChairId) {
+          // Creating new chair for new barber
+          const areaChairs = chairs.filter(c => c.areaId === areaId);
+          const nextNumber = areaChairs.length > 0 ? Math.max(...areaChairs.map(c => c.number)) + 1 : 1;
+          const chairRef = await addDoc(collection(db, 'chairs'), {
+            areaId,
+            number: nextNumber,
+            name: name,
+            status: 'available',
+            waitingCount: 0
+          });
+          finalChairId = chairRef.id;
+        } else {
+          // Check if chair exists before updating to avoid "No document to update" error
+          const chairDocRef = doc(db, 'chairs', finalChairId);
+          const chairSnap = await getDoc(chairDocRef);
+          
+          if (chairSnap.exists()) {
+            await updateDoc(chairDocRef, {
+              name: name,
+              areaId: areaId
+            });
+          } else {
+            // Re-create the chair if it was lost/deleted but the ID was still in user profile
+            const areaChairs = chairs.filter(c => c.areaId === areaId);
+            const nextNumber = areaChairs.length > 0 ? Math.max(...areaChairs.map(c => c.number)) + 1 : 1;
+            await setDoc(chairDocRef, {
+              areaId,
+              number: nextNumber,
+              name: name,
+              status: 'available',
+              waitingCount: 0
+            });
+          }
+        }
+      }
+
       const userData: any = {
         name, 
         role, 
         phone: phone || '',
         email: email || (editingUser?.email || ''),
         areaId: (role === 'barber' && areaId) ? areaId : null,
-        chairId: (role === 'barber' && chairId) ? chairId : null
+        chairId: (role === 'barber') ? finalChairId : null
       };
 
       if (editingUser) {
@@ -163,18 +204,27 @@ export default function Admin() {
     }
   };
 
-  const deleteUser = async (uid: string) => {
-    if (!uid) {
-      console.error("❌ Cannot delete user: UID is missing");
-      return;
-    }
+  const deleteUser = async (user: UserProfile) => {
+    if (!user.uid) return;
     
     try {
-      console.log(`🗑️ Deleting user profile: ${uid}`);
-      await deleteDoc(doc(db, 'users', uid));
-      console.log("✅ User profile deleted");
+      console.log(`🗑️ Deleting user profile and associated chair: ${user.uid}`);
+      
+      const batch = writeBatch(db);
+      
+      // Delete user
+      batch.delete(doc(db, 'users', user.uid));
+      
+      // Delete associated chair if any
+      if (user.chairId) {
+        batch.delete(doc(db, 'chairs', user.chairId));
+      }
+      
+      await batch.commit();
+      
+      console.log("✅ User and chair deleted");
       setConfirmDelete(null);
-      alert('✅ ĐÃ GỠ BỎ: Hồ sơ nhân viên đã được xóa khỏi hệ thống.');
+      alert('✅ ĐÃ GỠ BỎ: Hồ sơ nhân viên và ghế làm việc đã được xóa.');
     } catch (err: any) {
       console.error("Delete user error:", err);
       alert('❌ Lỗi: ' + (err.message || 'Không thể xóa nhân viên này.'));
@@ -225,12 +275,16 @@ export default function Admin() {
   };
 
   const addChairToArea = async (areaId: string) => {
+    const chairName = window.prompt("Nhập tên hoặc số hiệu cho ghế mới (Vd: Ghế 01, Barber VIP...):");
+    if (chairName === null) return; // Cancelled
+
     const areaChairs = chairs.filter(c => c.areaId === areaId);
     const nextNumber = areaChairs.length > 0 ? Math.max(...areaChairs.map(c => c.number)) + 1 : 1;
     
     await addDoc(collection(db, 'chairs'), {
       areaId,
       number: nextNumber,
+      name: chairName || `Ghế ${nextNumber}`,
       status: 'available',
       waitingCount: 0
     });
@@ -310,27 +364,16 @@ export default function Admin() {
                   <div className="grid grid-cols-4 gap-3">
                     {chairs.filter(c => c.areaId === area.id).sort((a,b) => a.number - b.number).map(chair => (
                       <div key={chair.id} className="relative group/chair">
-                        <div className="aspect-square flex items-center justify-center bg-slate-50 border border-slate-100 rounded-xl text-base font-black text-slate-400">
-                          {chair.number < 10 ? `0${chair.number}` : chair.number}
+                        <div className="aspect-square flex flex-col items-center justify-center bg-slate-50 border border-slate-100 rounded-xl text-center p-1">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter mb-0.5 leading-none">
+                            {chair.number < 10 ? `0${chair.number}` : chair.number}
+                          </span>
+                          <span className="text-[9px] font-bold text-slate-600 truncate max-w-full leading-tight">
+                            {chair.name || `Ghế ${chair.number}`}
+                          </span>
                         </div>
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmDelete({ id: chair.id, type: 'chair' });
-                          }}
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center transition-all shadow-md z-10"
-                          title="Xóa ghế"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
                       </div>
                     ))}
-                    <button 
-                      onClick={() => addChairToArea(area.id)}
-                      className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl text-slate-300 hover:border-indigo-400 hover:text-indigo-500 transition-all bg-slate-50/30 group"
-                    >
-                       <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -390,7 +433,12 @@ export default function Admin() {
                         <div className="flex items-center gap-2">
                            <MapIcon className="w-3.5 h-3.5 text-slate-300" />
                            <span>
-                             {areas.find(a => a.id === user.areaId)?.name} — <b className="text-slate-700">Ghế {chairs.find(c => c.id === user.chairId)?.number}</b>
+                             {areas.find(a => a.id === user.areaId)?.name} — <b className="text-slate-700">
+                               {(() => {
+                                 const c = chairs.find(ch => ch.id === user.chairId);
+                                 return c ? (c.name || `Ghế ${c.number}`) : 'Ghế không tồn tại';
+                               })()}
+                             </b>
                            </span>
                         </div>
                       ) : (
@@ -402,7 +450,7 @@ export default function Admin() {
                         <button onClick={() => { setEditingUser(user); setSelectedAreaId(user.areaId || ''); setIsUserModalOpen(true); }} className="p-2 hover:bg-slate-50 rounded-xl text-slate-300 hover:text-indigo-600 transition-colors">
                           <Edit className="w-4.5 h-4.5" />
                         </button>
-                        <button onClick={() => setConfirmDelete({ id: user.uid, type: 'user' })} className="p-2 hover:bg-slate-50 rounded-xl text-slate-300 hover:text-red-500 transition-colors">
+                        <button onClick={() => setConfirmDelete({ id: user.uid, type: 'user', data: user } as any)} className="p-2 hover:bg-slate-50 rounded-xl text-slate-300 hover:text-red-500 transition-colors">
                           <Trash2 className="w-4.5 h-4.5" />
                         </button>
                        </div>
@@ -502,30 +550,18 @@ export default function Admin() {
                 </select>
               </div>
 
-                <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gán khu vực</label>
-                  <select 
-                    name="areaId" 
-                    value={selectedAreaId} 
-                    onChange={(e) => setSelectedAreaId(e.target.value)}
-                    className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-sm font-bold focus:bg-white focus:border-indigo-600 focus:outline-none transition-all appearance-none"
-                  >
-                    <option value="">Chưa gán</option>
-                    {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Gán số ghế</label>
-                  <select name="chairId" defaultValue={editingUser?.chairId} className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-sm font-bold focus:bg-white focus:border-indigo-600 focus:outline-none transition-all appearance-none">
-                    <option value="">Chưa gán</option>
-                    {chairs.filter(c => c.areaId === selectedAreaId).map(c => (
-                      <option key={c.id} value={c.id}>
-                        Ghế {c.number}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Khu vực làm việc</label>
+                <select 
+                  name="areaId" 
+                  value={selectedAreaId} 
+                  onChange={(e) => setSelectedAreaId(e.target.value)}
+                  className="w-full bg-slate-50 border-2 border-slate-50 rounded-2xl p-4 text-sm font-bold focus:bg-white focus:border-indigo-600 focus:outline-none transition-all appearance-none"
+                >
+                  <option value="">Chưa gán</option>
+                  {areas.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+                <p className="text-[9px] text-slate-400 italic ml-1">* Hệ thống sẽ tự động tạo ghế làm việc tại khu vực này.</p>
               </div>
 
               <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
@@ -571,7 +607,7 @@ export default function Admin() {
                 onClick={() => {
                   if (confirmDelete.type === 'area') deleteArea(confirmDelete.id);
                   else if (confirmDelete.type === 'chair') deleteChair(confirmDelete.id);
-                  else deleteUser(confirmDelete.id);
+                  else deleteUser(confirmDelete.data);
                 }}
                 className="py-4 bg-red-500 hover:bg-red-600 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl transition-all shadow-lg shadow-red-100"
               >

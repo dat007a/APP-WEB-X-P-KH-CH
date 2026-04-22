@@ -276,7 +276,7 @@ export default function BarberView() {
          <div className="relative z-10 text-center">
             <h1 className="text-3xl font-black text-slate-800 tracking-tighter uppercase mb-2">Barber Control</h1>
             <p className="text-indigo-600 font-black uppercase text-[10px] tracking-[0.2em] mb-4">Hệ Thống Tường Barber Phát Triển</p>
-            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{area?.name} — Ghế số {chair?.number}</p>
+            <p className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">{area?.name} — {chair?.name || `Ghế số ${chair?.number}`}</p>
 
             <AnimatePresence mode="wait">
                {chair?.status === 'in-service' || chair?.status === 'almost-done' ? (

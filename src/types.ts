@@ -19,6 +19,7 @@ export interface Chair {
   id: string;
   areaId: string;
   number: number;
+  name?: string;
   status: 'available' | 'in-service' | 'almost-done' | 'break';
   waitingCount: number;
   currentTicketId?: string;
