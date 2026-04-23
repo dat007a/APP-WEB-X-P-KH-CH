@@ -64,8 +64,24 @@
         "avgServiceTime": { "type": "number", "description": "Minutes until chair turns yellow (default 20)" },
         "maxServiceTime": { "type": "number", "description": "Minutes until alert (default 40)" },
         "kpiThreshold": { "type": "number", "description": "KPI percentage (default 90)" },
+        "ticketKpiThreshold": { "type": "number", "description": "KPI for App tickets vs Actual tickets (default 95)" },
         "fraudThreshold": { "type": "number", "description": "Minimum minutes for a valid service (default 20)" }
       }
+    },
+    "DailyKpiReport": {
+      "title": "Daily KPI Report",
+      "description": "Daily counts of app tickets vs actual tickets for a barber.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "string", "format": "date" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "actualTicketsCount": { "type": "number" },
+        "appTicketsCount": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["date", "userId", "actualTicketsCount", "appTicketsCount"]
     },
     "Log": {
       "title": "Activity Log",
@@ -86,6 +102,7 @@
     "/chairs/{chairId}": { "schema": "Chair", "description": "All chairs across the shop." },
     "/tickets/{ticketId}": { "schema": "Ticket", "description": "Service records." },
     "/settings/global": { "schema": "Setting", "description": "Global shop settings." },
+    "/dailyKpiReports/{reportId}": { "schema": "DailyKpiReport", "description": "Daily KPI entry for each barber." },
     "/logs/{logId}": { "schema": "Log", "description": "System event logs." }
   }
 }

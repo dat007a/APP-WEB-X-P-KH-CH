@@ -1,11 +1,78 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // ULTIMATE PERMISSIVE RULES FOR DEBUGGING
-    // These allow ANYONE to read/write EVERYTHING.
-    // This will definitely solve "Missing or insufficient permissions".
+    
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() { return request.auth != null; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isSignedIn() && getUserData().role == 'admin'; }
+    function isCashier() { return isSignedIn() && getUserData().role == 'cashier'; }
+    function isBarber() { return isSignedIn() && getUserData().role == 'barber'; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128; }
+
+    // Default deny
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // --- USERS ---
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isSignedIn() && request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'email']));
+      allow delete: if isAdmin();
+    }
+
+    // --- AREAS ---
+    match /areas/{areaId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- CHAIRS ---
+    match /chairs/{chairId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || isCashier() || (isBarber() && getUserData().chairId == chairId);
+      allow delete: if isAdmin();
+    }
+
+    // --- TICKETS ---
+    match /tickets/{ticketId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdmin() || isCashier() || (isBarber() && existing().barberId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // --- SETTINGS ---
+    match /settings/global {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // --- DAILY KPI REPORTS ---
+    match /dailyKpiReports/{reportId} {
+      allow read: if isAdmin() || isCashier();
+      
+      function isValidKpi(data) {
+        return data.date is string && 
+               data.userId is string && 
+               data.actualTicketsCount is number &&
+               data.appTicketsCount is number;
+      }
+
+      allow create: if (isAdmin() || isCashier()) && isValidKpi(incoming());
+      allow update: if isAdmin() || isCashier();
+      allow delete: if isAdmin();
+    }
+
+    // --- LOGS ---
+    match /logs/{logId} {
+      allow read: if isAdmin() || isCashier();
+      allow create: if isSignedIn();
     }
   }
 }

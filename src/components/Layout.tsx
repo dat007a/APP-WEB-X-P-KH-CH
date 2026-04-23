@@ -7,6 +7,7 @@ import {
   Users, 
   Settings, 
   FileText, 
+  ClipboardList,
   History, 
   LogOut, 
   Scissors,
@@ -30,6 +31,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: 'Dashboard', path: '/', icon: LayoutDashboard, roles: ['admin', 'cashier', 'barber'] },
     { name: 'Nhân sự', path: '/admin', icon: Users, roles: ['admin'] },
     { name: 'Báo cáo KPI', path: '/reports', icon: FileText, roles: ['admin', 'cashier'] },
+    { name: 'KPI Phiếu', path: '/kpi-tickets', icon: ClipboardList, roles: ['admin', 'cashier'] },
     { name: 'Nhật ký log', path: '/logs', icon: History, roles: ['admin', 'cashier'] },
     { name: 'Cài đặt', path: '/settings', icon: Settings, roles: ['admin'] },
   ];

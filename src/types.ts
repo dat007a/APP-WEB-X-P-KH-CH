@@ -45,7 +45,19 @@ export interface SystemSettings {
   avgServiceTime: number;
   maxServiceTime: number;
   kpiThreshold: number;
+  ticketKpiThreshold: number; // For the new "Phiếu thực tế" vs "Phiếu App" KPI
   fraudThreshold: number;
+}
+
+export interface DailyKpiRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  userId: string;
+  userName: string;
+  actualTicketsCount: number;
+  appTicketsCount: number; // Sync this from tickets collection
+  updatedAt: string;
+  updatedBy: string;
 }
 
 export interface ActivityLog {

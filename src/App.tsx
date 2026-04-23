@@ -7,6 +7,7 @@ import BarberView from './pages/BarberView';
 import Admin from './pages/Admin';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
+import KpiManagement from './pages/KpiManagement';
 import Logs from './pages/Logs';
 import Layout from './components/Layout';
 import { checkAndPerformMaintenance } from './lib/maintenance';
@@ -48,6 +49,11 @@ function AppRoutes() {
       <Route path="/reports" element={
         <PrivateRoute roles={['admin', 'cashier']}>
           <Layout><Reports /></Layout>
+        </PrivateRoute>
+      } />
+      <Route path="/kpi-tickets" element={
+        <PrivateRoute roles={['admin', 'cashier']}>
+          <Layout><KpiManagement /></Layout>
         </PrivateRoute>
       } />
       <Route path="/settings" element={

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { SystemSettings } from '../types';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { Save, RefreshCcw, ShieldAlert, Timer, Users, Zap } from 'lucide-react';
+import { Save, RefreshCcw, ShieldAlert, Timer, Users, Zap, ClipboardList } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Settings() {
@@ -10,6 +10,7 @@ export default function Settings() {
     avgServiceTime: 20,
     maxServiceTime: 40,
     kpiThreshold: 90,
+    ticketKpiThreshold: 95,
     fraudThreshold: 20
   });
   const [loading, setLoading] = useState(false);
@@ -17,7 +18,7 @@ export default function Settings() {
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'global'), (snap) => {
-      if (snap.exists()) setSettings(snap.data() as SystemSettings);
+      if (snap.exists()) setSettings(prev => ({ ...prev, ...snap.data() }));
     });
     return () => unsub();
   }, []);
@@ -80,6 +81,14 @@ export default function Settings() {
             description="Phần trăm tỷ lệ hoàn thành tối thiểu để nhân viên đạt tiêu chuẩn STAR."
             value={settings.kpiThreshold}
             onChange={(v: string) => updateField('kpiThreshold', v)}
+            unit="%"
+          />
+          <SettingField 
+            icon={ClipboardList}
+            title="KPI Phiếu Thực tế"
+            description="Ngưỡng đạt cho tỷ lệ: (Số phiếu trên App) / (Số phiếu thợ cắt thực tế)."
+            value={settings.ticketKpiThreshold}
+            onChange={(v: string) => updateField('ticketKpiThreshold', v)}
             unit="%"
           />
         </div>
